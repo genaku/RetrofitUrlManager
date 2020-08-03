@@ -29,7 +29,7 @@
 ### Initialize
 ``` java
  // When building OkHttpClient, the OkHttpClient.Builder() is passed to the with() method to initialize the configuration
- OkHttpClient = RetrofitUrlManager.getInstance().with(new OkHttpClient.Builder())
+ OkHttpClient = RetrofitUrlManager.with(new OkHttpClient.Builder())
                 .build();
 ```
 
