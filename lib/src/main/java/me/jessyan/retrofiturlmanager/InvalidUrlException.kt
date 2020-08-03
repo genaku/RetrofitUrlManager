@@ -13,38 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package me.jessyan.retrofiturlmanager;
-
-import okhttp3.HttpUrl;
+package me.jessyan.retrofiturlmanager
 
 /**
  * ================================================
- * 工具类
- * <p>
+ * Url 无效的异常
+ *
+ *
  * Created by JessYan on 2017/7/24.
- * <a href="mailto:jess.yan.effort@gmail.com">Contact me</a>
- * <a href="https://github.com/JessYanCoding">Follow me</a>
+ * [Contact me](mailto:jess.yan.effort@gmail.com)
+ * [Follow me](https://github.com/JessYanCoding)
  * ================================================
  */
-class Utils {
-
-    private Utils() {
-        throw new IllegalStateException("do not instantiation me");
-    }
-
-    static HttpUrl checkUrl(String url) {
-        HttpUrl parseUrl = HttpUrl.parse(url);
-        if (null == parseUrl) {
-            throw new InvalidUrlException(url);
-        } else {
-            return parseUrl;
-        }
-    }
-
-    static <T> T checkNotNull(T object, String message) {
-        if (object == null) {
-            throw new NullPointerException(message);
-        }
-        return object;
-    }
-}
+class InvalidUrlException(url: String?) : RuntimeException("You've configured an invalid url : " + if (url.isNullOrBlank()) "EMPTY_OR_NULL_URL" else url)

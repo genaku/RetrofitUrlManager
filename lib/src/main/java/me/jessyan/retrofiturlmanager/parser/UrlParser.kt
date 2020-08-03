@@ -13,38 +13,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package me.jessyan.retrofiturlmanager.parser;
+package me.jessyan.retrofiturlmanager.parser
 
-import me.jessyan.retrofiturlmanager.RetrofitUrlManager;
-import okhttp3.HttpUrl;
-import okhttp3.Request;
+import me.jessyan.retrofiturlmanager.RetrofitUrlManager
+import okhttp3.HttpUrl
 
 /**
  * ================================================
  * Url解析器
- * <p>
+ *
+ *
  * Created by JessYan on 17/07/2017 17:44
- * <a href="mailto:jess.yan.effort@gmail.com">Contact me</a>
- * <a href="https://github.com/JessYanCoding">Follow me</a>
+ * [Contact me](mailto:jess.yan.effort@gmail.com)
+ * [Follow me](https://github.com/JessYanCoding)
  * ================================================
  */
-
-public interface UrlParser {
-
+interface UrlParser {
     /**
      * 这里可以做一些初始化操作
      *
-     * @param retrofitUrlManager {@link RetrofitUrlManager}
+     * @param retrofitUrlManager [RetrofitUrlManager]
      */
-    void init(RetrofitUrlManager retrofitUrlManager);
+    fun init(retrofitUrlManager: RetrofitUrlManager?)
 
     /**
-     * 将 {@link RetrofitUrlManager#mDomainNameHub} 中映射的 URL 解析成完整的{@link HttpUrl}
-     * 用来替换 @{@link Request#url} 达到动态切换 URL
+     * 将 [RetrofitUrlManager.mDomainNameHub] 中映射的 URL 解析成完整的[HttpUrl]
+     * 用来替换 @[Request.url] 达到动态切换 URL
      *
      * @param domainUrl 用于替换的 URL 地址
      * @param url       旧 URL 地址
      * @return
      */
-    HttpUrl parseUrl(HttpUrl domainUrl, HttpUrl url);
+    fun parseUrl(domainUrl: HttpUrl?, url: HttpUrl?): HttpUrl?
 }

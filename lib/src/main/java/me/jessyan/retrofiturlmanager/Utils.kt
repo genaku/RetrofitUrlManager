@@ -13,22 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package me.jessyan.retrofiturlmanager;
+package me.jessyan.retrofiturlmanager
 
-import android.text.TextUtils;
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
  * ================================================
- * Url 无效的异常
- * <p>
+ * 工具类
+ *
+ *
  * Created by JessYan on 2017/7/24.
- * <a href="mailto:jess.yan.effort@gmail.com">Contact me</a>
- * <a href="https://github.com/JessYanCoding">Follow me</a>
+ * [Contact me](mailto:jess.yan.effort@gmail.com)
+ * [Follow me](https://github.com/JessYanCoding)
  * ================================================
  */
-public class InvalidUrlException extends RuntimeException {
+object Utils {
+    @JvmStatic
+    fun checkUrl(url: String?): HttpUrl =
+            url?.toHttpUrlOrNull() ?: throw InvalidUrlException(url)
 
-    public InvalidUrlException(String url) {
-        super("You've configured an invalid url : " + (TextUtils.isEmpty(url) ? "EMPTY_OR_NULL_URL" : url));
-    }
+    @JvmStatic
+    fun <T> checkNotNull(obj: T?, message: String?): T =
+            obj ?: throw NullPointerException(message)
 }

@@ -51,7 +51,7 @@ public class NetWorkManager {
     }
 
     private NetWorkManager() {
-        this.mOkHttpClient = RetrofitUrlManager.getInstance().with(new OkHttpClient.Builder()) //RetrofitUrlManager 初始化
+        this.mOkHttpClient = RetrofitUrlManager.with(new OkHttpClient.Builder()) //RetrofitUrlManager 初始化
                 .readTimeout(5, TimeUnit.SECONDS)
                 .connectTimeout(5, TimeUnit.SECONDS)
                 .build();

@@ -1,0 +1,10 @@
+apply plugin: 'java-library'
+apply plugin: 'kotlin'
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    compileOnly 'com.squareup.okhttp3:okhttp:4.8.0'
+}
+
+sourceCompatibility = "1.8"
+targetCompatibility = "1.8"
