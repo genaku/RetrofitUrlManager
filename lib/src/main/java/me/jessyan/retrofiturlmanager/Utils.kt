@@ -32,8 +32,4 @@ object Utils {
     @JvmStatic
     fun checkUrl(url: String?): HttpUrl =
             url?.toHttpUrlOrNull() ?: throw InvalidUrlException(url)
-
-    @JvmStatic
-    fun <T> checkNotNull(obj: T?, message: String?): T =
-            obj ?: throw NullPointerException(message)
 }

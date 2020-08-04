@@ -69,18 +69,15 @@ import java.util.*
  * ================================================
  */
 class SuperUrlParser : UrlParser {
-    private var mRetrofitUrlManager: RetrofitUrlManager? = null
-    private var mCache: Cache<String, String>? = null
-    override fun init(retrofitUrlManager: RetrofitUrlManager?) {
-        mRetrofitUrlManager = retrofitUrlManager
-        mCache = LruCache(100)
-    }
 
-    override fun parseUrl(domainUrl: HttpUrl?, url: HttpUrl?): HttpUrl? {
-        if (null == domainUrl) return url
-        val builder = url!!.newBuilder()
+    private var mCache: Cache<String, String?> = LruCache(100)
+
+    override fun parseUrl(domainUrl: HttpUrl, url: HttpUrl): HttpUrl {
+        val builder = url.newBuilder()
         val pathSize = resolvePathSize(url, builder)
-        if (mCache!![getKey(domainUrl, url, pathSize)].isNullOrBlank()) {
+        val key = getKey(domainUrl, url, pathSize)
+        val cashedUrl = mCache[key]
+        if (cashedUrl.isNullOrBlank()) {
             for (i in 0 until url.pathSize) {
                 //当删除了上一个 index, PathSegment 的 item 会自动前进一位, 所以 remove(0) 就好
                 builder.removePathSegment(0)
@@ -101,28 +98,27 @@ class SuperUrlParser : UrlParser {
                 builder.addEncodedPathSegment(PathSegment)
             }
         } else {
-            builder.encodedPath(mCache!![getKey(domainUrl, url, pathSize)])
+            builder.encodedPath(cashedUrl)
         }
         val httpUrl = builder
                 .scheme(domainUrl.scheme)
                 .host(domainUrl.host)
                 .port(domainUrl.port)
                 .build()
-        if (mCache!![getKey(domainUrl, url, pathSize)].isNullOrBlank()) {
-            mCache!!.put(getKey(domainUrl, url, pathSize), httpUrl.encodedPath)
+        if (mCache[key].isNullOrBlank()) {
+            mCache.put(key, httpUrl.encodedPath)
         }
         return httpUrl
     }
 
-    private fun getKey(domainUrl: HttpUrl, url: HttpUrl?, PathSize: Int): String {
-        return (domainUrl.encodedPath + url!!.encodedPath + PathSize)
-    }
+    private fun getKey(domainUrl: HttpUrl, url: HttpUrl, pathSize: Int): String =
+            domainUrl.encodedPath + url.encodedPath + pathSize
 
-    private fun resolvePathSize(httpUrl: HttpUrl?, builder: HttpUrl.Builder): Int {
-        val fragment = httpUrl!!.fragment
+    private fun resolvePathSize(httpUrl: HttpUrl, builder: HttpUrl.Builder): Int {
+        val fragment = httpUrl.fragment ?: ""
         var pathSize = 0
         val newFragment = StringBuffer()
-        if (fragment!!.indexOf("#") == -1) {
+        if (fragment.indexOf("#") == -1) {
             val split = fragment.split("=".toRegex()).toTypedArray()
             if (split.size > 1) {
                 pathSize = split[1].toInt()
@@ -143,7 +139,7 @@ class SuperUrlParser : UrlParser {
                     if (index != -1) {
                         newFragment.append(split[1].substring(index, split[1].length))
                         val substring = split[1].substring(0, index)
-                        if (!substring.isNullOrBlank()) {
+                        if (!substring.isBlank()) {
                             pathSize = substring.toInt()
                         }
                     } else {
@@ -152,7 +148,7 @@ class SuperUrlParser : UrlParser {
                 }
             }
         }
-        if (newFragment.toString().isNullOrBlank()) {
+        if (newFragment.toString().isBlank()) {
             builder.fragment(null)
         } else {
             builder.fragment(newFragment.toString())
