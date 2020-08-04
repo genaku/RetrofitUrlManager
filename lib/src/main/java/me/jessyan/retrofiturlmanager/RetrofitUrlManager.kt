@@ -15,7 +15,6 @@
  */
 package me.jessyan.retrofiturlmanager
 
-import me.jessyan.retrofiturlmanager.Utils.checkNotNull
 import me.jessyan.retrofiturlmanager.Utils.checkUrl
 import me.jessyan.retrofiturlmanager.parser.DefaultUrlParser
 import me.jessyan.retrofiturlmanager.parser.UrlParser
@@ -26,6 +25,7 @@ import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
 import java.util.*
+import kotlin.collections.ArrayList
 
 /**
  * ================================================
@@ -87,9 +87,9 @@ import java.util.*
  */
 object RetrofitUrlManager {
 
-    private var DEPENDENCY_OKHTTP = false
     private const val DOMAIN_NAME = "Domain-Name"
     private const val GLOBAL_DOMAIN_NAME = "me.jessyan.retrofiturlmanager.globalDomainName"
+
     const val DOMAIN_NAME_HEADER = "$DOMAIN_NAME: "
 
     /**
@@ -101,17 +101,6 @@ object RetrofitUrlManager {
      * 如果在 Url 地址中加入此标识符, 意味着您想对此 Url 开启超级模式, 框架会将 '=' 后面的数字作为 PathSize, 来确认最终需要被超级模式替换的 BaseUrl
      */
     const val IDENTIFICATION_PATH_SIZE = "#baseurl_path_size="
-
-    init {
-        val hasDependency: Boolean = try {
-            Class.forName("okhttp3.OkHttpClient")
-            true
-        } catch (e: ClassNotFoundException) {
-            false
-        }
-        DEPENDENCY_OKHTTP = hasDependency
-    }
-
 
     /**
      * 获取 BaseUrl
@@ -146,7 +135,27 @@ object RetrofitUrlManager {
     private val mDomainNameHub: MutableMap<String, HttpUrl?> = HashMap()
     private val mInterceptor: Interceptor
     private val mListeners: MutableList<onUrlChangeListener> = ArrayList()
-    private var mUrlParser: UrlParser? = null
+    private var mUrlParser: UrlParser = DefaultUrlParser(this)
+
+    init {
+        val hasDependency: Boolean = try {
+            Class.forName("okhttp3.OkHttpClient")
+            true
+        } catch (e: ClassNotFoundException) {
+            false
+        }
+
+        check(hasDependency) {
+            //使用本框架必须依赖 Okhttp
+            "Must be dependency Okhttp"
+        }
+        mInterceptor = object : Interceptor {
+            @Throws(IOException::class)
+            override fun intercept(chain: Interceptor.Chain): Response {
+                return if (!isRun) chain.proceed(chain.request()) else chain.proceed(processRequest(chain.request())!!)
+            }
+        }
+    }
 
     /**
      * 将 [OkHttpClient.Builder] 传入, 配置一些本框架需要的参数
@@ -155,11 +164,8 @@ object RetrofitUrlManager {
      * @return [OkHttpClient.Builder]
      */
     @JvmStatic
-    fun with(builder: OkHttpClient.Builder): OkHttpClient.Builder {
-        checkNotNull(builder, "builder cannot be null")
-        return builder
-                .addInterceptor(mInterceptor)
-    }
+    fun with(builder: OkHttpClient.Builder): OkHttpClient.Builder =
+            builder.addInterceptor(mInterceptor)
 
     /**
      * 对 [Request] 进行一些必要的加工, 执行切换 BaseUrl 的相关逻辑
@@ -169,7 +175,7 @@ object RetrofitUrlManager {
      */
     @JvmStatic
     fun processRequest(request: Request?): Request? {
-        if (request == null) return null
+        request ?: return null
         val newBuilder = request.newBuilder()
         val url = request.url.toString()
         //如果 Url 地址中包含 IDENTIFICATION_IGNORE 标识符, 框架将不会对此 Url 进行任何切换 BaseUrl 的操作
@@ -178,24 +184,24 @@ object RetrofitUrlManager {
         }
         val domainName = obtainDomainNameFromHeaders(request)
         val httpUrl: HttpUrl?
-        val listeners = listenersToArray()
+        val listeners = getListeners()
 
         // 如果有 header,获取 header 中 domainName 所映射的 url,若没有,则检查全局的 BaseUrl,未找到则为null
         if (!domainName.isNullOrBlank()) {
-            notifyListener(request, domainName, listeners)
+            notifyListeners(request, domainName, listeners)
             httpUrl = fetchDomain(domainName)
             newBuilder.removeHeader(DOMAIN_NAME)
         } else {
-            notifyListener(request, GLOBAL_DOMAIN_NAME, listeners)
+            notifyListeners(request, GLOBAL_DOMAIN_NAME, listeners)
             httpUrl = globalDomain
         }
         if (null != httpUrl) {
-            val newUrl = mUrlParser!!.parseUrl(httpUrl, request.url)
-            for (i in listeners.indices) {
-                (listeners[i] as onUrlChangeListener).onUrlChanged(newUrl, request.url) // 通知监听器此 Url 的 BaseUrl 已被切换
+            val newUrl = mUrlParser.parseUrl(httpUrl, request.url)
+            listeners.forEach {
+                it.onUrlChanged(newUrl, request.url) // 通知监听器此 Url 的 BaseUrl 已被切换
             }
             return newBuilder
-                    .url(newUrl!!)
+                    .url(newUrl)
                     .build()
         }
         return newBuilder.build()
@@ -226,9 +232,9 @@ object RetrofitUrlManager {
      * @param domainName 域名的别名
      * @param listeners  监听器列表
      */
-    private fun notifyListener(request: Request, domainName: String?, listeners: Array<Any>) {
-        for (i in listeners.indices) {
-            (listeners[i] as onUrlChangeListener).onUrlChangeBefore(request.url, domainName)
+    private fun notifyListeners(request: Request, domainName: String?, listeners: List<onUrlChangeListener>) {
+        listeners.forEach {
+            it.onUrlChangeBefore(request.url, domainName)
         }
     }
 
@@ -280,9 +286,9 @@ object RetrofitUrlManager {
     fun startAdvancedModel(baseUrl: HttpUrl) {
         RetrofitUrlManager.baseUrl = baseUrl
         pathSize = baseUrl.pathSize
-        val baseUrlpathSegments = baseUrl.pathSegments
-        if ("" == baseUrlpathSegments[baseUrlpathSegments.size - 1]) {
-            pathSize -= 1
+        val baseUrlPathSegments = baseUrl.pathSegments
+        if (baseUrlPathSegments[baseUrlPathSegments.size - 1].isEmpty()) {
+            pathSize--
         }
     }
 
@@ -336,7 +342,8 @@ object RetrofitUrlManager {
      */
     @JvmStatic
     fun setGlobalDomain(globalDomain: String) {
-        synchronized(mDomainNameHub) { mDomainNameHub.put(GLOBAL_DOMAIN_NAME, checkUrl(globalDomain)) }
+        val url = checkUrl(globalDomain)
+        synchronized(mDomainNameHub) { mDomainNameHub.put(GLOBAL_DOMAIN_NAME, url) }
     }
 
     /**
@@ -363,7 +370,8 @@ object RetrofitUrlManager {
      */
     @JvmStatic
     fun putDomain(domainName: String, domainUrl: String) {
-        synchronized(mDomainNameHub) { mDomainNameHub.put(domainName, checkUrl(domainUrl)) }
+        val url = checkUrl(domainUrl)
+        synchronized(mDomainNameHub) { mDomainNameHub.put(domainName, url) }
     }
 
     /**
@@ -449,12 +457,10 @@ object RetrofitUrlManager {
         synchronized(mListeners) { mListeners.remove(listener) }
     }
 
-    private fun listenersToArray(): Array<Any> {
-        var listeners: Array<Any> = emptyArray()
+    private fun getListeners(): List<onUrlChangeListener> {
+        val listeners: List<onUrlChangeListener>
         synchronized(mListeners) {
-            if (mListeners.size > 0) {
-                listeners = mListeners.toTypedArray()
-            }
+            listeners = mListeners.toList()
         }
         return listeners
     }
@@ -470,20 +476,5 @@ object RetrofitUrlManager {
         if (headers.isEmpty()) return null
         require(headers.size <= 1) { "Only one Domain-Name in the headers" }
         return request.header(DOMAIN_NAME)
-    }
-
-    init {
-        check(DEPENDENCY_OKHTTP) {  //使用本框架必须依赖 Okhttp
-            "Must be dependency Okhttp"
-        }
-        val urlParser: UrlParser = DefaultUrlParser()
-        urlParser.init(this)
-        setUrlParser(urlParser)
-        mInterceptor = object : Interceptor {
-            @Throws(IOException::class)
-            override fun intercept(chain: Interceptor.Chain): Response {
-                return if (!isRun) chain.proceed(chain.request()) else chain.proceed(processRequest(chain.request())!!)
-            }
-        }
     }
 }

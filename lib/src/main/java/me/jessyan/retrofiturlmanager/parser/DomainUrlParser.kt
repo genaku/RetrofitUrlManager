@@ -43,18 +43,17 @@ import java.util.*
  * ================================================
  */
 class DomainUrlParser : UrlParser {
-    private var mCache: Cache<String, String>? = null
-    override fun init(retrofitUrlManager: RetrofitUrlManager?) {
-        mCache = LruCache(100)
-    }
 
-    override fun parseUrl(domainUrl: HttpUrl?, url: HttpUrl?): HttpUrl? {
+    private var mCache: Cache<String, String?> = LruCache(100)
+
+    override fun parseUrl(domainUrl: HttpUrl, url: HttpUrl): HttpUrl {
         // 如果 HttpUrl.parse(url); 解析为 null 说明,url 格式不正确,正确的格式为 "https://github.com:443"
         // http 默认端口 80, https 默认端口 443, 如果端口号是默认端口号就可以将 ":443" 去掉
         // 只支持 http 和 https
-        if (null == domainUrl) return url
-        val builder = url!!.newBuilder()
-        if (mCache!![getKey(domainUrl, url)].isNullOrBlank()) {
+        val builder = url.newBuilder()
+        val key = getKey(domainUrl, url)
+        val cachedUrl = mCache[key]
+        if (cachedUrl.isNullOrBlank()) {
             for (i in 0 until url.pathSize) {
                 //当删除了上一个 index, PathSegment 的 item 会自动前进一位, 所以 remove(0) 就好
                 builder.removePathSegment(0)
@@ -66,20 +65,19 @@ class DomainUrlParser : UrlParser {
                 builder.addEncodedPathSegment(PathSegment)
             }
         } else {
-            builder.encodedPath(mCache!![getKey(domainUrl, url)])
+            builder.encodedPath(cachedUrl)
         }
         val httpUrl = builder
                 .scheme(domainUrl.scheme)
                 .host(domainUrl.host)
                 .port(domainUrl.port)
                 .build()
-        if (mCache!![getKey(domainUrl, url)].isNullOrBlank()) {
-            mCache!!.put(getKey(domainUrl, url), httpUrl.encodedPath)
+        if (mCache[key].isNullOrBlank()) {
+            mCache.put(key, httpUrl.encodedPath)
         }
         return httpUrl
     }
 
-    private fun getKey(domainUrl: HttpUrl, url: HttpUrl?): String {
-        return domainUrl.encodedPath + url!!.encodedPath
-    }
+    private fun getKey(domainUrl: HttpUrl, url: HttpUrl): String =
+            domainUrl.encodedPath + url.encodedPath
 }

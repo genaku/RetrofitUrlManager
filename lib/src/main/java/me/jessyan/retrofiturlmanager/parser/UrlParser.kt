@@ -29,12 +29,6 @@ import okhttp3.HttpUrl
  * ================================================
  */
 interface UrlParser {
-    /**
-     * 这里可以做一些初始化操作
-     *
-     * @param retrofitUrlManager [RetrofitUrlManager]
-     */
-    fun init(retrofitUrlManager: RetrofitUrlManager?)
 
     /**
      * 将 [RetrofitUrlManager.mDomainNameHub] 中映射的 URL 解析成完整的[HttpUrl]
@@ -44,5 +38,5 @@ interface UrlParser {
      * @param url       旧 URL 地址
      * @return
      */
-    fun parseUrl(domainUrl: HttpUrl?, url: HttpUrl?): HttpUrl?
+    fun parseUrl(domainUrl: HttpUrl, url: HttpUrl): HttpUrl
 }

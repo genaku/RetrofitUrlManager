@@ -56,55 +56,50 @@ import java.util.*
  * [Follow me](https://github.com/JessYanCoding)
  * ================================================
  */
-class AdvancedUrlParser : UrlParser {
-    private var mRetrofitUrlManager: RetrofitUrlManager? = null
-    private var mCache: Cache<String, String>? = null
-    override fun init(retrofitUrlManager: RetrofitUrlManager?) {
-        mRetrofitUrlManager = retrofitUrlManager
-        mCache = LruCache<String, String>(100)
-    }
+class AdvancedUrlParser(private val retrofitUrlManager: RetrofitUrlManager) : UrlParser {
 
-    override fun parseUrl(domainUrl: HttpUrl?, url: HttpUrl?): HttpUrl? {
-        if (null == domainUrl) return url
-        val builder = url!!.newBuilder()
-        if (mCache!![getKey(domainUrl, url)].isNullOrBlank()) {
+    private var mCache: Cache<String, String?> = LruCache(100)
+
+    override fun parseUrl(domainUrl: HttpUrl, url: HttpUrl): HttpUrl {
+        val builder = url.newBuilder()
+        val key = getKey(domainUrl, url)
+        val cachedUrl = mCache[key]
+        if (cachedUrl.isNullOrBlank()) {
             for (i in 0 until url.pathSize) {
                 //当删除了上一个 index, PathSegment 的 item 会自动前进一位, 所以 remove(0) 就好
                 builder.removePathSegment(0)
             }
             val newPathSegments: MutableList<String> = ArrayList()
             newPathSegments.addAll(domainUrl.encodedPathSegments)
-            if (url.pathSize > mRetrofitUrlManager!!.pathSize) {
+            if (url.pathSize > retrofitUrlManager.pathSize) {
                 val encodedPathSegments = url.encodedPathSegments
-                for (i in mRetrofitUrlManager!!.pathSize until encodedPathSegments.size) {
+                for (i in retrofitUrlManager.pathSize until encodedPathSegments.size) {
                     newPathSegments.add(encodedPathSegments[i])
                 }
-            } else require(url.pathSize >= mRetrofitUrlManager!!.pathSize) {
+            } else require(url.pathSize >= retrofitUrlManager.pathSize) {
                 String.format("Your final path is %s, but the baseUrl of your RetrofitUrlManager#startAdvancedModel is %s",
                         url.scheme + "://" + url.host + url.encodedPath,
-                        mRetrofitUrlManager!!.baseUrl!!.scheme + "://"
-                                + mRetrofitUrlManager!!.baseUrl!!.host
-                                + mRetrofitUrlManager!!.baseUrl!!.encodedPath)
+                        retrofitUrlManager.baseUrl?.scheme + "://"
+                                + retrofitUrlManager.baseUrl?.host
+                                + retrofitUrlManager.baseUrl?.encodedPath)
             }
             for (PathSegment in newPathSegments) {
                 builder.addEncodedPathSegment(PathSegment)
             }
         } else {
-            builder.encodedPath(mCache!![getKey(domainUrl, url)])
+            builder.encodedPath(cachedUrl)
         }
         val httpUrl = builder
                 .scheme(domainUrl.scheme)
                 .host(domainUrl.host)
                 .port(domainUrl.port)
                 .build()
-        if (mCache!![getKey(domainUrl, url)].isNullOrBlank()) {
-            mCache!!.put(getKey(domainUrl, url), httpUrl.encodedPath)
+        if (mCache[key].isNullOrBlank()) {
+            mCache.put(key, httpUrl.encodedPath)
         }
         return httpUrl
     }
 
-    private fun getKey(domainUrl: HttpUrl, url: HttpUrl?): String {
-        return (domainUrl.encodedPath + url!!.encodedPath
-                + mRetrofitUrlManager!!.pathSize)
-    }
+    private fun getKey(domainUrl: HttpUrl, url: HttpUrl): String =
+            domainUrl.encodedPath + url.encodedPath + retrofitUrlManager.pathSize
 }

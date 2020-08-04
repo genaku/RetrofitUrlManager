@@ -33,44 +33,23 @@ import okhttp3.HttpUrl
  * [Follow me](https://github.com/JessYanCoding)
  * ================================================
  */
-class DefaultUrlParser : UrlParser {
-    private var mDomainUrlParser: UrlParser? = null
+class DefaultUrlParser(private val retrofitUrlManager: RetrofitUrlManager) : UrlParser {
 
-    @Volatile
-    private var mAdvancedUrlParser: UrlParser? = null
+    private val mDomainUrlParser: UrlParser by lazy { synchronized(this) { DomainUrlParser() } }
+    private val mAdvancedUrlParser: UrlParser by lazy { synchronized(this) { AdvancedUrlParser(retrofitUrlManager) } }
+    private val mSuperUrlParser: UrlParser by lazy { synchronized(this) { SuperUrlParser() } }
 
-    @Volatile
-    private var mSuperUrlParser: UrlParser? = null
-    private var mRetrofitUrlManager: RetrofitUrlManager? = null
-    override fun init(retrofitUrlManager: RetrofitUrlManager?) {
-        mRetrofitUrlManager = retrofitUrlManager
-        mDomainUrlParser = DomainUrlParser().apply { init(retrofitUrlManager) }
-    }
+    override fun parseUrl(domainUrl: HttpUrl, url: HttpUrl): HttpUrl {
+        return when {
+            url.toString().contains(RetrofitUrlManager.IDENTIFICATION_PATH_SIZE) ->
+                mSuperUrlParser.parseUrl(domainUrl, url)
 
-    override fun parseUrl(domainUrl: HttpUrl?, url: HttpUrl?): HttpUrl? {
-        if (null == domainUrl) return url
-        if (url.toString().contains(RetrofitUrlManager.IDENTIFICATION_PATH_SIZE)) {
-            if (mSuperUrlParser == null) {
-                synchronized(this) {
-                    if (mSuperUrlParser == null) {
-                        mSuperUrlParser = SuperUrlParser().apply { init(mRetrofitUrlManager) }
-                    }
-                }
-            }
-            return mSuperUrlParser!!.parseUrl(domainUrl, url)
+            //如果是高级模式则使用高级解析器
+            retrofitUrlManager.isAdvancedModel ->
+                mAdvancedUrlParser.parseUrl(domainUrl, url)
+
+            else ->
+                mDomainUrlParser.parseUrl(domainUrl, url)
         }
-
-        //如果是高级模式则使用高级解析器
-        if (mRetrofitUrlManager!!.isAdvancedModel) {
-            if (mAdvancedUrlParser == null) {
-                synchronized(this) {
-                    if (mAdvancedUrlParser == null) {
-                        mAdvancedUrlParser = AdvancedUrlParser().apply { init(mRetrofitUrlManager) }
-                    }
-                }
-            }
-            return mAdvancedUrlParser!!.parseUrl(domainUrl, url)
-        }
-        return mDomainUrlParser!!.parseUrl(domainUrl, url)
     }
 }
